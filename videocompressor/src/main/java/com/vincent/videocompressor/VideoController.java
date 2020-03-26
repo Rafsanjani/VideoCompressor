@@ -17,7 +17,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-
 import java.util.Objects;
 
 
@@ -57,36 +56,6 @@ public class VideoController {
         return localInstance;
     }
 
-    @SuppressLint("NewApi")
-    public static int selectColorFormat(MediaCodecInfo codecInfo, String mimeType) {
-        MediaCodecInfo.CodecCapabilities capabilities = codecInfo.getCapabilitiesForType(mimeType);
-        int lastColorFormat = 0;
-        for (int i = 0; i < capabilities.colorFormats.length; i++) {
-            int colorFormat = capabilities.colorFormats[i];
-            if (isRecognizedFormat(colorFormat)) {
-                lastColorFormat = colorFormat;
-                if (!(codecInfo.getName().equals("OMX.SEC.AVC.Encoder") && colorFormat == 19)) {
-                    return colorFormat;
-                }
-            }
-        }
-        return lastColorFormat;
-    }
-
-    private static boolean isRecognizedFormat(int colorFormat) {
-        switch (colorFormat) {
-            case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar:
-            case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420PackedPlanar:
-            case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar:
-            case MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420PackedSemiPlanar:
-            case MediaCodecInfo.CodecCapabilities.COLOR_TI_FormatYUV420PackedSemiPlanar:
-                return true;
-            default:
-                return false;
-        }
-    }
-
-    public native static int convertVideoFrame(ByteBuffer src, ByteBuffer dest, int destFormat, int width, int height, int padding, int swap);
 
     private void didWriteData(final boolean last, final boolean error) {
         final boolean firstWrite = videoConvertFirstWrite;
@@ -95,74 +64,7 @@ public class VideoController {
         }
     }
 
-    public static class VideoConvertRunnable implements Runnable {
 
-        private String videoPath;
-        private String destPath;
-
-        private VideoConvertRunnable(String videoPath, String destPath) {
-            this.videoPath = videoPath;
-            this.destPath = destPath;
-        }
-
-        public static void runConversion(final String videoPath, final String destPath) {
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        VideoConvertRunnable wrapper = new VideoConvertRunnable(videoPath, destPath);
-                        Thread th = new Thread(wrapper, "VideoConvertRunnable");
-                        th.start();
-                        th.join();
-                    } catch (Exception e) {
-                        Log.e("tmessages", e.getMessage());
-                    }
-                }
-            }).start();
-        }
-
-        @Override
-        public void run() {
-            VideoController.getInstance().convertVideo(videoPath, destPath, 0, null);
-        }
-    }
-
-    public static MediaCodecInfo selectCodec(String mimeType) {
-        int numCodecs = MediaCodecList.getCodecCount();
-        MediaCodecInfo lastCodecInfo = null;
-        for (int i = 0; i < numCodecs; i++) {
-            MediaCodecInfo codecInfo = MediaCodecList.getCodecInfoAt(i);
-            if (!codecInfo.isEncoder()) {
-                continue;
-            }
-            String[] types = codecInfo.getSupportedTypes();
-            for (String type : types) {
-                if (type.equalsIgnoreCase(mimeType)) {
-                    lastCodecInfo = codecInfo;
-                    if (!lastCodecInfo.getName().equals("OMX.SEC.avc.enc")) {
-                        return lastCodecInfo;
-                    } else if (lastCodecInfo.getName().equals("OMX.SEC.AVC.Encoder")) {
-                        return lastCodecInfo;
-                    }
-                }
-            }
-        }
-        return lastCodecInfo;
-    }
-
-    /**
-     * Background conversion for queueing tasks
-     * @param path source file to compress
-     * @param dest destination directory to put result
-     */
-
-public void scheduleVideoConvert(String path, String dest) {
-        startVideoConvertFromQueue(path, dest);
-    }
-
-    private void startVideoConvertFromQueue(String path, String dest) {
-        VideoConvertRunnable.runConversion(path, dest);
-    }
 
     @TargetApi(16)
     private long readAndWriteTrack(MediaExtractor extractor, MP4Builder mediaMuxer, MediaCodec.BufferInfo info, long start, long end, File file, boolean isAudio) throws Exception {
@@ -378,11 +280,7 @@ public void scheduleVideoConvert(String path, String dest) {
                                     bufferSize += padding;
                                 }
                             } else if (processorType == PROCESSOR_TYPE_TI) {
-                                //resultHeightAligned = 368;
-                                //bufferSize = resultWidth * resultHeightAligned * 3 / 2;
-                                //resultHeightAligned += (16 - (resultHeight % 16));
-                                //padding = resultWidth * (resultHeightAligned - resultHeight);
-                                //bufferSize += padding * 5 / 4;
+
                             } else if (processorType == PROCESSOR_TYPE_MTK) {
                                 if (manufacturer.equals("baidu")) {
                                     resultHeightAligned += (16 - (resultHeight % 16));
@@ -636,14 +534,6 @@ public void scheduleVideoConvert(String path, String dest) {
 
         cachedFile=cacheFile;
 
-       /* File fdelete = inputFile;
-        if (fdelete.exists()) {
-            if (fdelete.delete()) {
-               Log.e("file Deleted :" ,inputFile.getPath());
-            } else {
-                Log.e("file not Deleted :" , inputFile.getPath());
-            }
-        }*/
 
         //inputFile.delete();
         Log.e("ViratPath",path+"");
@@ -651,40 +541,6 @@ public void scheduleVideoConvert(String path, String dest) {
         Log.e("ViratPath",inputFile.getPath()+"");
 
 
-       /* Log.e("ViratPath",path+"");
-        File replacedFile = new File(path);
-
-        FileOutputStream fos = null;
-        InputStream inputStream = null;
-        try {
-            fos = new FileOutputStream(replacedFile);
-             inputStream = new FileInputStream(cacheFile);
-            byte[] buf = new byte[1024];
-            int len;
-            while ((len = inputStream.read(buf)) > 0) {
-                fos.write(buf, 0, len);
-            }
-            inputStream.close();
-            fos.close();
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-*/
-
-    //    cacheFile.delete();
-
-       /* try {
-           // copyFile(cacheFile,inputFile);
-            //inputFile.delete();
-            FileUtils.copyFile(cacheFile,inputFile);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }*/
-         // cacheFile.delete();
-       // inputFile.delete();
         return true;
     }
 
